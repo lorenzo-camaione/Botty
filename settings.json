@@ -1,6 +1,6 @@
 {
-	"api_key": "<API_KEY>",
+	"api_token": "<API-TOKEN>",
 	"users": {
-		"username": "<ID>"
+		"username": 58675748
 	}
 }

@@ -9,7 +9,7 @@ from telegram.ext import Updater
 
 
 settings = json.loads(open('settings.json').read())
-API_KEY = settings['api_key']
+API_TOKEN = settings['api_token']
 USERS_WHITE_LIST = settings['users'].values()
 
 # Enable logging
@@ -80,13 +80,13 @@ def status_command(bot, update):
     bot.sendMessage(update.message.chat_id, text=text)
 
 
-def error_handler(bot, update, error):
+def error_handler(_, update, error):
     logger.warn("Update '%s' caused error '%s'" % (update, error))
 
 
 def main():
     # Create the EventHandler and pass it your bot's token.
-    updater = Updater(token=API_KEY)
+    updater = Updater(token=API_TOKEN)
 
     # Get the dispatcher to register handlers
     dispatcher = updater.dispatcher
