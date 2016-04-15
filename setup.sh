@@ -4,7 +4,8 @@ echo -e '\nInstalling Virtual Environment Tool'
 sudo apt-get install python-virtualenv python3-dev libssl-dev swig libpq-dev
 
 echo -e '\nCreating Virtual Environment'
-virtualenv --python=python3.4 venv
+SYSTEM_PYTHON_VERSION=`python3 --version | sed -e "s/^Python //g" -e "s/\.[0-9]*$//g"`
+virtualenv --python=python${SYSTEM_PYTHON_VERSION} venv
 
 echo -e '\nInstalling Requirements'
 ./venv/bin/pip3 install -r ./requirements.txt
