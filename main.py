@@ -7,25 +7,25 @@ from six import wraps
 import transmissionrpc
 from telegram.ext import Updater
 
-
 settings = json.loads(open('settings.json').read())
 API_TOKEN = settings['api_token']
 USERS_WHITE_LIST = settings['users'].values()
 
 # Enable logging
 logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    filename='log/app.log',
+    format='[%(levelname)s] %(asctime)s - %(name)s:\n%(message)s',
     level=logging.INFO
 )
 
-# Setup a logger
+# Setup logger
 logger = logging.getLogger(__name__)
 
-# Setup BitTorrent client
+# Setup Transmission BitTorrent client
 torrent_client = transmissionrpc.Client('localhost', port=9091)
 
 
-def login(function):
+def login(function: callable):
     @wraps(function)
     def wrapper(bot, update):
         if update.message.to_dict()['from']['id'] in USERS_WHITE_LIST:
@@ -33,55 +33,89 @@ def login(function):
         else:
             return bot.sendMessage(
                 update.message.chat_id,
-                text="Ask <Botty's owner> to add your user_id to  user_id white list"
+                text="Ask Botty's owner to add your user_id to the white list"
             )
+
     return wrapper
+
+
+def parse_command_arguments(argc: int = 0):
+    def decorator(function: callable):
+        @wraps(function)
+        def wrapper(bot, update):
+            args = update.message.text.split(' ')[1:]
+            if len(args) == argc:
+                return function(bot, update, args[1:])
+            else:
+                return bot.sendMessage(
+                    update.message.chat_id,
+                    text='Invalid arguments: required {} argument{} but {} {} given'.format(
+                        argc, 's' if argc > 1 else '', len(args), 'were' if len(args) > 1 else 'was'
+                    )
+                )
+
+        return wrapper
+
+    return decorator
 
 
 # Define a few command handlers. These usually take the two arguments bot and
 # update. Error handlers also receive the raised TelegramError object in error.
 def start_command(bot, update):
-    bot.sendMessage(update.message.chat_id, text='Hi!')
+    bot.sendMessage(
+        update.message.chat_id,
+        text='Hi {}!\nWelcome back'.format(update.message.to_dict()['from']['username'])
+    )
 
 
 def help_command(bot, update):
-    bot.sendMessage(update.message.chat_id, text='Help!')
+    bot.sendMessage(
+        update.message.chat_id,
+        text='Help:\n\n'
+             '/download <TORRENT-URL>\n'
+             '/status <TORRENT-ID>'
+    )
 
 
 def echo_command(bot, update):
-    bot.sendMessage(update.message.chat_id, text=update.message.text)
+    bot.sendMessage(
+        update.message.chat_id,
+        text='Did you say: "{}"?'.format(update.message.text)
+    )
 
 
 @login
-def download_command(bot, update):
-    arguments = update.message.text.split(' ')
+@parse_command_arguments(argc=1)
+def download_command(bot, update, args):
     try:
-        torrent_client.add_torrent(arguments[1])
+        torrent_client.add_torrent(args[0])
     except Exception as e:
-        text = str(e)
+        logger.exception(e, exc_info=True)
+        text = 'Something went wrong'
     else:
         text = 'Success'
     bot.sendMessage(update.message.chat_id, text=text)
 
 
 @login
-def status_command(bot, update):
-    arguments = update.message.text.split(' ')
+@parse_command_arguments(argc=1)
+def status_command(bot, update, args):
     try:
-        torrent = torrent_client.get_torrents()[int(arguments[1])]
+        torrent = torrent_client.get_torrents()[int(args[0])]
     except IndexError:
         text = 'No such torrent'
     except Exception as e:
-        text = str(e)
+        logger.exception(e, exc_info=True)
+        text = 'Something went wrong'
     else:
         text = 'Name: %s\nProgress: %s \nETA: %s\nStatus: %s \n'.format(
-                torrent.name, int(torrent.progress), torrent.format_eta(), torrent.status
+            torrent.name, int(torrent.progress), torrent.format_eta(), torrent.status
         )
     bot.sendMessage(update.message.chat_id, text=text)
 
 
 def error_handler(_, update, error):
-    logger.warn("Update '%s' caused error '%s'" % (update, error))
+    logger.error("Update '{}' caused error '{}'".format(update, error))
 
 
 def main():
